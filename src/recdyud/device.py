@@ -6,6 +6,7 @@ original driver are intentionally not implemented.
 """
 
 import array
+import ctypes
 import logging
 import threading
 import time
@@ -31,11 +32,21 @@ EP_TS_IN = 0x86
 INTERFACE = 0
 
 COMMAND_TIMEOUT_MS = 3000
-# 188 * 512: a whole number of TS packets and of 512-byte USB packets.
-TS_READ_SIZE = 188 * 512
+# A multiple of the 512-byte USB packet size (otherwise the last transaction
+# overflows).  A transfer that fails loses its data over usbip, so a small
+# transfer loses less: 16 KiB halves the CC errors per failure of 188 * 512.
+TS_READ_SIZE = 16384
 
 SEGMENT_MODE_FULLSEG = 0x00020000
 SEGMENT_MODE_ONESEG = 0x00010000
+
+# libusb_error codes.
+LIBUSB_ERROR_NO_DEVICE = -4
+LIBUSB_ERROR_TIMEOUT = -7
+_LIBUSB_ERROR_NAMES = {-1: "EIO", -4: "NO_DEVICE", -7: "TIMEOUT", -8: "OVERFLOW", -9: "PIPE (stall)"}
+
+# Consecutive failed TS reads after which read_ts() gives up.
+TS_MAX_CONSECUTIVE_ERRORS = 10
 
 # Lock status values above this mean "TS locked" (BonDriver: GetLockStatus() > 8).
 LOCK_THRESHOLD = 8
@@ -171,6 +182,8 @@ class DyUd200:
         self.firmware: FirmwareVersion | None = None
         self.serial: str | None = None
         self._claimed = False
+        self.ts_errors = 0
+        self._ts_consecutive_errors = 0
 
     # -- lifecycle ---------------------------------------------------------
 
@@ -214,6 +227,12 @@ class DyUd200:
 
     def initialize(self) -> None:
         """Run the initialisation sequence of BonDriver_dyud's OpenTuner()."""
+        # A previous process that died after a transfer error can leave an
+        # endpoint's data toggle out of sync; the tuner then locks but no TS
+        # ever arrives.  CLEAR_FEATURE(ENDPOINT_HALT) resets it on both sides
+        # (WinUSB does this through AUTO_CLEAR_STALL).
+        for ep in (EP_COMMAND_OUT, EP_RESPONSE_IN, EP_TS_IN):
+            self._clear_halt(ep)
         stale = self._drain(EP_RESPONSE_IN, 512)
         if stale:
             log.debug("discarded %d stale response bytes", stale)
@@ -365,12 +384,59 @@ class DyUd200:
 
     # -- TS ------------------------------------------------------------------
 
-    def read_ts(self, buffer: array.array, timeout: int = 1000) -> int:
-        """Read TS data into ``buffer``; returns the number of bytes read (0 on timeout)."""
+    def _clear_halt(self, endpoint: int) -> None:
+        """Clear the halt condition and the data toggle of an endpoint."""
         try:
-            return self._dev.read(EP_TS_IN, buffer, timeout=timeout)
-        except usb.core.USBTimeoutError:
-            return 0
+            self._dev.clear_halt(endpoint)
+        except usb.core.USBError as e:
+            if e.backend_error_code == LIBUSB_ERROR_NO_DEVICE:
+                raise DeviceError(f"DY-UD200 {self.location} disconnected") from e
+            log.debug("clear_halt(%#04x): %s", endpoint, e)
+
+    def _bulk_read(self, endpoint: int, buffer: array.array, timeout: int) -> tuple[int, int]:
+        """libusb_bulk_transfer(); returns (libusb error code, bytes transferred).
+
+        PyUSB drops the data of a transfer that failed part way; calling libusb
+        directly keeps it.
+        """
+        ctx = self._dev._ctx
+        ctx.managed_open()
+        address, length = buffer.buffer_info()
+        transferred = ctypes.c_int()
+        ret = ctx.backend.lib.libusb_bulk_transfer(
+            ctx.handle.handle,
+            endpoint,
+            ctypes.cast(address, ctypes.POINTER(ctypes.c_ubyte)),
+            length * buffer.itemsize,
+            ctypes.byref(transferred),
+            timeout,
+        )
+        return ret, transferred.value
+
+    def read_ts(self, buffer: array.array, timeout: int = 1000) -> int:
+        """Read TS data into ``buffer``; returns the number of bytes read (0 on timeout).
+
+        Bulk transfers of the TS endpoint fail now and then (0.5-1 times a
+        second with full-seg; EIO on Linux, notably over usbip).  Such a
+        failure resets the endpoint and returns what arrived before it; only
+        TS_MAX_CONSECUTIVE_ERRORS failures in a row raise DeviceError.
+        """
+        ret, n = self._bulk_read(EP_TS_IN, buffer, timeout)
+        if ret == 0 or ret == LIBUSB_ERROR_TIMEOUT:
+            if n:
+                self._ts_consecutive_errors = 0
+            return n
+        reason = f"libusb error {_LIBUSB_ERROR_NAMES.get(ret, ret)}, {n} bytes transferred"
+        if ret == LIBUSB_ERROR_NO_DEVICE:
+            raise DeviceError(f"DY-UD200 {self.location} disconnected")
+        self.ts_errors += 1
+        self._ts_consecutive_errors += 1
+        if self._ts_consecutive_errors >= TS_MAX_CONSECUTIVE_ERRORS:
+            raise DeviceError(f"TS read failed {self._ts_consecutive_errors} times in a row: {reason}")
+        if self.ts_errors == 1 or self.ts_errors % 100 == 0:
+            log.warning("TS read failed (%s); resetting the endpoint (%d errors so far)", reason, self.ts_errors)
+        self._clear_halt(EP_TS_IN)
+        return n
 
 
 def open_device(selector: str | None = None) -> DyUd200:

@@ -161,6 +161,7 @@ def cmd_monitor(args: argparse.Namespace) -> int:
                         "tei_total": total.tei,
                         "cc_errors_total": total.cc_errors,
                         "sync_losses": aligner.sync_losses,
+                        "usb_errors": tuner.ts_errors,
                         "scrambled_percent": round(delta.scrambled_percent, 1),
                         "verdict": verdict,
                     }

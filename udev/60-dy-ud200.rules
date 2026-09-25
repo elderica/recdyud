@@ -2,5 +2,8 @@
 #
 # Grants access to members of the "video" group and to the local user.
 #   sudo install -m 644 udev/60-dy-ud200.rules /etc/udev/rules.d/
-#   sudo udevadm control --reload-rules && sudo udevadm trigger
+#   sudo udevadm control --reload-rules && sudo udevadm trigger --action=add --subsystem-match=usb
 SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_device", ATTR{idVendor}=="1c11", ATTR{idProduct}=="1004", MODE="0660", GROUP="video", TAG+="uaccess"
+
+# Disable USB autosuspend (a known cause of drops with DVB tuners).
+ACTION=="add", SUBSYSTEM=="usb", ATTR{idVendor}=="1c11", ATTR{idProduct}=="1004", TEST=="power/control", ATTR{power/control}="on"

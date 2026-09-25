@@ -12,7 +12,7 @@ from .ts import PACKET_SIZE
 
 log = logging.getLogger(__name__)
 
-QUEUE_CHUNKS = 256  # ~24 MiB, several seconds of stream
+QUEUE_CHUNKS = 1536  # 24 MiB, several seconds of stream
 
 
 class TsReader(threading.Thread):

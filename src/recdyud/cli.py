@@ -340,7 +340,7 @@ def stream(
     log.debug("longest gap between USB reads: %.1f ms", reader.max_gap * 1000)
     t = analyzer.total
     log.info(
-        "recorded %.1fs, %.1f MiB, %d packets (TEI %d, CC errors %d, sync losses %d, dropped chunks %d)",
+        "recorded %.1fs, %.1f MiB, %d packets (TEI %d, CC errors %d, sync losses %d, dropped chunks %d, USB errors %d)",
         time.monotonic() - started,
         output.bytes / 1048576,
         t.packets,
@@ -348,6 +348,7 @@ def stream(
         t.cc_errors,
         aligner.sync_losses,
         reader.overflows,
+        tuner.ts_errors,
     )
     if pipeline.descrambler is not None:
         for prog in pipeline.descrambler.programs():

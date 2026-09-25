@@ -33,12 +33,15 @@ git submodule update --init --recursive
 uv sync            # 依存関係の取得とネイティブライブラリのビルド
 ```
 
-一般ユーザーでチューナーにアクセスできるよう、udev ルールをインストールします（`video` グループとログイン中のユーザーに権限を付与します）。
+一般ユーザーでチューナーにアクセスできるよう、udev ルールをインストールします（`video` グループとログイン中のユーザーに権限を付与し、
+TS の欠けの原因になる USB のオートサスペンドを止めます）。
 
 ```sh
 sudo install -m 644 udev/60-dy-ud200.rules /etc/udev/rules.d/
-sudo udevadm control --reload-rules && sudo udevadm trigger
+sudo udevadm control --reload-rules && sudo udevadm trigger --action=add --subsystem-match=usb
 ```
+
+オートサスペンドの設定はデバイスの追加時にだけ適用されるので、`--action=add` を付けてください（またはチューナーを挿し直してください）。
 
 `bin/recdyud` と `bin/recdyud-diag` は `uv run` を呼び出すラッパースクリプトです。
 `PATH` の通ったディレクトリにシンボリックリンクを置くと、どこからでも実行できます。
