@@ -1,0 +1,20 @@
+#!/bin/sh
+# Run recdyud / recdyud-diag from this checkout through uv.
+#
+#   bin/recdyud 27 - - > out.ts
+#   bin/recdyud-diag monitor 27
+#
+# The command name is taken from the name this script is invoked as, so
+# bin/recdyud-diag is a symlink to this file.  The script can be symlinked
+# into a directory on $PATH (e.g. ~/.local/bin).
+set -eu
+
+self=$(readlink -f -- "$0")
+root=$(CDPATH='' cd -- "$(dirname -- "$self")/.." && pwd)
+cmd=$(basename -- "$0")
+case "$cmd" in
+  recdyud|recdyud-diag) ;;
+  *) cmd=recdyud ;;
+esac
+
+exec uv run --quiet --frozen --project "$root" "$cmd" "$@"

@@ -1,0 +1,6 @@
+# DY-UD200 ISDB-T USB tuner (1c11:1004)
+#
+# Grants access to members of the "video" group and to the local user.
+#   sudo install -m 644 udev/60-dy-ud200.rules /etc/udev/rules.d/
+#   sudo udevadm control --reload-rules && sudo udevadm trigger
+SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_device", ATTR{idVendor}=="1c11", ATTR{idProduct}=="1004", MODE="0660", GROUP="video", TAG+="uaccess"

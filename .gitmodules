@@ -1,0 +1,6 @@
+[submodule "vendor/libaribb25"]
+	path = vendor/libaribb25
+	url = https://github.com/nanamitm/libaribb25
+[submodule "vendor/libusb-cmake"]
+	path = vendor/libusb-cmake
+	url = https://github.com/libusb/libusb-cmake

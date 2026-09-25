@@ -1,0 +1,35 @@
+# mirakc + recdyud
+#
+#   git submodule update --init --recursive
+#   docker compose -f docker/compose.yaml up -d --build
+#
+# Clients such as KonomiTV can use http://<host>:40772/ as a Mirakurun-compatible server.
+services:
+  mirakc:
+    image: recdyud-mirakc
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    container_name: mirakc
+    init: true
+    restart: unless-stopped
+    # Share the whole USB device tree and allow USB character devices (major 189)
+    # so that the tuner keeps working after it is re-plugged.
+    volumes:
+      - /dev/bus/usb:/dev/bus/usb
+      - mirakc-epg:/var/lib/mirakc/epg
+      - ./config.yml:/etc/mirakc/config.yml:ro
+    device_cgroup_rules:
+      - 'c 189:* rmw'
+    ports:
+      - 40772:40772
+    environment:
+      TZ: Asia/Tokyo
+      RUST_LOG: info
+      # Show the stderr of recdyud in the mirakc log:
+      # RUST_LOG: info,mirakc=debug
+      # MIRAKC_DEBUG_CHILD_PROCESS: 1
+
+volumes:
+  mirakc-epg:
+    name: mirakc_epg

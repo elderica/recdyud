@@ -1,0 +1,29 @@
+# mirakc configuration for a DY-UD200.
+# See https://mirakc.github.io/dekiru-mirakc/ for details.
+#
+# The channel list can be generated with:
+#   docker compose -f docker/compose.yaml run --rm --entrypoint recdyud-diag mirakc scan --mirakc
+
+server:
+  addrs:
+    - http: 0.0.0.0:40772
+
+epg:
+  cache-dir: /var/lib/mirakc/epg
+
+# Replace with the channels receivable in your area.
+channels:
+  - name: NHK総合
+    type: GR
+    channel: '27'
+  - name: NHK Eテレ
+    type: GR
+    channel: '26'
+
+tuners:
+  # recdyud descrambles the stream with the B-CAS card in the tuner, so no
+  # decode-filter is needed.  Add one entry per DY-UD200; each process picks
+  # a free tuner (or use `--device 0`, `--device 1`, ... to pin them).
+  - name: dy-ud200
+    types: [GR]
+    command: recdyud {{{channel}}} - -

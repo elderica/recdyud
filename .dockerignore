@@ -1,0 +1,9 @@
+.git
+.venv
+**/__pycache__
+**/*.so
+build/
+dist/
+BonDriver_dyud_test_source/
+docker/config.yml
+docker/compose.yaml
