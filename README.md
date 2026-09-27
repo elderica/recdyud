@@ -10,7 +10,7 @@
 
 ## 必要なもの
 
-- Linux (x86_64 / aarch64)
+- Linux (x86_64。aarch64 は未確認)
 - [uv](https://docs.astral.sh/uv/)（CPython 3.14 は uv が取得します）
 - C/C++ コンパイラと CMake 3.20 以上（ネイティブ部分のビルド用）
 - Docker（mirakc イメージを使う場合）
@@ -21,6 +21,17 @@ C/C++ ライブラリはシステムのものを使わず、git submodule でベ
 | --- | --- | --- |
 | `vendor/libaribb25` ([nanamitm/libaribb25](https://github.com/nanamitm/libaribb25)) | ARIB STD-B25 デスクランブラ (MULTI2) | Apache-2.0 |
 | `vendor/libusb-cmake` ([libusb/libusb-cmake](https://github.com/libusb/libusb-cmake)) | PyUSB のバックエンド (libusb-1.0) | LGPL-2.1 |
+
+## 動作確認状況
+
+| 環境 | 状況 |
+| --- | --- |
+| x86_64 の Linux | 確認済み |
+| aarch64（Raspberry Pi など） | 未確認 |
+| ファームウェア 1.0.2-2 | 確認済み |
+| ファームウェア 1.0.5-2 / 1.0.5-3 | 未確認（1.0.5-2 向けの再初期化は BonDriver_dyud に合わせて実装済み） |
+
+未確認の環境で試した結果（うまく動いた場合も）を報告していただけると助かります。報告の仕方は [CONTRIBUTING.md](CONTRIBUTING.md) にあります。
 
 ## セットアップ
 
@@ -188,7 +199,10 @@ TS の解析（TEI・CC・PSI/SI）は NumPy と小さな自前パーサで行�
 
 ```sh
 uv run pytest
+uvx ruff check && uvx ruff format --check
 ```
+
+不具合の報告やプルリクエストの前に [CONTRIBUTING.md](CONTRIBUTING.md) を読んでください。
 
 テストでは、合成したスクランブル TS（Python で実装した MULTI2 暗号化）を libaribb25 で復号し、元に戻ることを確認しています。
 
@@ -201,5 +215,5 @@ RECDYUD_NATIVE_DIR=build/install/recdyud/_native uv run recdyud --help
 
 ## ライセンス
 
-recdyud は MIT ライセンスです（[LICENSE](LICENSE)）。
+recdyud は MIT ライセンスです（[LICENSE](LICENSE)）。動作は無保証です。
 submodule のライブラリにはそれぞれのライセンスが適用されます（libaribb25: Apache-2.0、libusb: LGPL-2.1）。
