@@ -1,5 +1,7 @@
 # recdyud
 
+[![CI](https://github.com/elderica/recdyud/actions/workflows/ci.yml/badge.svg)](https://github.com/elderica/recdyud/actions/workflows/ci.yml)
+
 地上波デジタルチューナー **DY-UD200** を [mirakc](https://github.com/mirakc/mirakc) から使うための、
 [recpt1](https://github.com/stz2012/recpt1) 互換のチューナーコマンドです。
 
