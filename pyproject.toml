@@ -16,7 +16,6 @@ classifiers = [
 ]
 dependencies = [
     "cryptography>=50.0.1",
-    "numpy>=2.5.3",
     "pyusb>=1.3.1",
 ]
 

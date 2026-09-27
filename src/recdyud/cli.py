@@ -18,8 +18,6 @@ import time
 from collections.abc import Callable
 from importlib.metadata import PackageNotFoundError, version
 
-import numpy as np
-
 from .b25 import B25Error, Descrambler
 from .bcas import BCasCard, CardError
 from .channels import Channel, InvalidChannel, parse_channel
@@ -214,13 +212,23 @@ class Pipeline:
 
 
 def drop_null_packets(packets: bytes) -> bytes:
-    n = len(packets) // PACKET_SIZE
-    if n == 0:
+    """Removes null packets, copying runs of other packets in one piece."""
+    view = memoryview(packets)
+    out: list[memoryview] = []
+    start = None
+    for off in range(0, len(packets) - PACKET_SIZE + 1, PACKET_SIZE):
+        if ((packets[off + 1] & 0x1F) << 8 | packets[off + 2]) == NULL_PID:
+            if start is not None:
+                out.append(view[start:off])
+                start = None
+        elif start is None:
+            start = off
+    if start == 0 or len(packets) < PACKET_SIZE:
         return packets
-    a = np.frombuffer(packets, dtype=np.uint8).reshape(n, PACKET_SIZE)
-    pid = ((a[:, 1] & 0x1F).astype(np.int32) << 8) | a[:, 2]
-    keep = pid != NULL_PID
-    return packets if keep.all() else a[keep].tobytes()
+    if start is None:
+        return b"".join(out)
+    out.append(view[start:])
+    return b"".join(out)
 
 
 def setup_descrambler(tuner: DyUd200, args: argparse.Namespace) -> Descrambler | None:

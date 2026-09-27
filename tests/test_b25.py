@@ -118,6 +118,17 @@ def test_drop_null_packets():
     assert drop_null_packets(ts) == payload_packet(0x100, 0, b"\0" * 184)
 
 
+def test_drop_null_packets_keeps_runs_in_order():
+    a, b, c = (payload_packet(0x100 + i, 0, bytes([i]) * 184) for i in range(3))
+    null = null_packet()
+    assert drop_null_packets(a + b + null + null + c) == a + b + c
+    assert drop_null_packets(null + a + null + b + c) == a + b + c
+    assert drop_null_packets(null + null) == b""
+    no_null = a + b + c
+    assert drop_null_packets(no_null) is no_null
+    assert drop_null_packets(b"") == b""
+
+
 def test_pipeline_fallback_after_key_change_keeps_every_packet():
     class FlakyCard(FakeCard):
         def process_ecm(self, ecm):

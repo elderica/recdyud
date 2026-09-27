@@ -189,11 +189,12 @@ DY-UD200 ──USB──> PyUSB (vendored libusb)
   （制御コマンドは AES-ECB で暗号化され、CRC-32 が付きます）。
 - libaribb25 の B-CAS 実装は PC/SC 前提なので、PC/SC に依存する `b_cas_card.c` はビルドせず、
   `native/dyud_b25.c` の小さなシムで `B_CAS_CARD` インターフェースを実装し、ECM 処理を Python 側（`recdyud.bcas`）に委ねています。
-- MULTI2 の復号は libaribb25 の C++ 実装（SIMD 対応）をそのまま使います。Python 側の処理はチャンクごとの NumPy 演算（同期確認・統計）だけなので、フルセグでも CPU 負荷は小さいです。
+- MULTI2 の復号は libaribb25 の C++ 実装（SIMD 対応）をそのまま使います。Python 側の処理は、パケットの同期確認・統計・ヌルパケットの除去だけです。
 - mirakc はチューナーコマンドを SIGKILL で止めるため、起動時に前回のプロセスが残した応答や TS を読み捨ててから初期化します。
 - 元のドライバにあるファームウェア書き換え機能は、危険なので実装していません。
 
-TS の解析（TEI・CC・PSI/SI）は NumPy と小さな自前パーサで行っています。
+TS の解析（TEI・CC・PSI/SI）は純 Python の小さな自前パーサで行っています。チューナーから 16 KiB ずつ届くデータでは、
+NumPy でまとめて計算するより 1 パケットずつのループのほうが軽かったため、NumPy は使っていません。
 [TSDuck](https://github.com/tsduck/tsduck) は必要な機能に対してソースからのビルドが重いため、組み込んでいません。
 詳しく解析したい場合は、出力を `tsp` や `tsanalyze` に渡してください（例: `recdyud --no-b25 27 10 - | tsanalyze`）。
 

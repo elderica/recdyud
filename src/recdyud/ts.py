@@ -2,8 +2,6 @@
 
 from dataclasses import dataclass, field
 
-import numpy as np
-
 from . import aribstr
 
 PACKET_SIZE = 188
@@ -17,16 +15,17 @@ PID_SDT = 0x0011
 SYNC_CONFIRM = 4
 
 
-def _find_sync(a: np.ndarray, start: int) -> int:
-    span = PACKET_SIZE * (SYNC_CONFIRM - 1)
-    end = len(a) - span
-    if end <= start:
-        return -1
-    ok = a[start:end] == SYNC_BYTE
-    for k in range(1, SYNC_CONFIRM):
-        ok &= a[start + k * PACKET_SIZE : end + k * PACKET_SIZE] == SYNC_BYTE
-    hits = np.flatnonzero(ok)
-    return start + int(hits[0]) if hits.size else -1
+def _find_sync(data: bytes, start: int) -> int:
+    end = len(data) - PACKET_SIZE * (SYNC_CONFIRM - 1)
+    i = start
+    while i < end:
+        i = data.find(SYNC_BYTE, i, end)
+        if i < 0:
+            break
+        if all(data[i + k * PACKET_SIZE] == SYNC_BYTE for k in range(1, SYNC_CONFIRM)):
+            return i
+        i += 1
+    return -1
 
 
 class PacketAligner:
@@ -44,13 +43,12 @@ class PacketAligner:
 
     def feed(self, chunk: bytes) -> bytes:
         data = self._pending + chunk if self._pending else bytes(chunk)
-        a = np.frombuffer(data, dtype=np.uint8)
         n = len(data)
         pos = 0
         out: list[bytes] = []
         while True:
             if not self.locked:
-                found = _find_sync(a, pos)
+                found = _find_sync(data, pos)
                 if found < 0:
                     keep = max(pos, n - PACKET_SIZE * SYNC_CONFIRM)
                     self.skipped_bytes += keep - pos
@@ -62,13 +60,15 @@ class PacketAligner:
             count = (n - pos) // PACKET_SIZE
             if count == 0:
                 break
-            heads = a[pos : pos + count * PACKET_SIZE : PACKET_SIZE]
-            bad = np.flatnonzero(heads != SYNC_BYTE)
-            good = count if bad.size == 0 else int(bad[0])
+            heads = data[pos : pos + count * PACKET_SIZE : PACKET_SIZE]
+            if heads.count(SYNC_BYTE) == count:
+                good = count
+            else:
+                good = next(i for i, b in enumerate(heads) if b != SYNC_BYTE)
             if good:
                 out.append(data[pos : pos + good * PACKET_SIZE])
                 pos += good * PACKET_SIZE
-            if bad.size == 0:
+            if good == count:
                 break
             self.locked = False
             self.sync_losses += 1
@@ -117,53 +117,46 @@ class TsCounters:
 
 
 class TsAnalyzer:
-    """Vectorised TEI / continuity counter / scrambling statistics."""
+    """TEI / continuity counter / scrambling statistics.
+
+    A plain per-packet loop: with the ~16 KiB chunks read from the tuner it is
+    several times cheaper than vectorising each chunk with NumPy.
+    """
 
     def __init__(self) -> None:
         self.total = TsCounters()
-        self.pid_packets = np.zeros(8192, dtype=np.int64)
-        self._last_cc = np.full(8192, -1, dtype=np.int16)
+        self.pid_packets = [0] * 8192
+        self._last_cc = [-1] * 8192
 
     def update(self, packets: bytes) -> TsCounters:
         n = len(packets) // PACKET_SIZE
         if n == 0:
             return TsCounters()
-        a = np.frombuffer(packets, dtype=np.uint8, count=n * PACKET_SIZE).reshape(n, PACKET_SIZE)
-        b1, b2, b3 = a[:, 1], a[:, 2], a[:, 3]
-        tei = (b1 & 0x80) != 0
-        pid = ((b1 & 0x1F).astype(np.int32) << 8) | b2
-        null = (pid == NULL_PID) & ~tei
-        scrambled = (b3 & 0xC0) != 0
-        has_payload = (b3 & 0x10) != 0
+        pid_packets = self.pid_packets
+        last_cc = self._last_cc
+        tei = cc_errors = scrambled = null = 0
+        for off in range(0, n * PACKET_SIZE, PACKET_SIZE):
+            b1 = packets[off + 1]
+            b3 = packets[off + 3]
+            pid = ((b1 & 0x1F) << 8) | packets[off + 2]
+            pid_packets[pid] += 1
+            if b1 & 0x80:
+                tei += 1
+                continue
+            if pid == NULL_PID:
+                null += 1
+                continue
+            if b3 & 0xC0:
+                scrambled += 1
+            if b3 & 0x10:
+                cc = b3 & 0x0F
+                prev = last_cc[pid]
+                # A difference of 0 is a (permitted) duplicate packet.
+                if prev >= 0 and (cc - prev) & 0x0F > 1:
+                    cc_errors += 1
+                last_cc[pid] = cc
 
-        np.add.at(self.pid_packets, pid, 1)
-
-        idx = np.flatnonzero(has_payload & ~null & ~tei)
-        cc_errors = 0
-        if idx.size:
-            p = pid[idx]
-            c = (b3[idx] & 0x0F).astype(np.int16)
-            order = np.argsort(p, kind="stable")
-            p, c = p[order], c[order]
-            first = np.ones(p.size, dtype=bool)
-            first[1:] = p[1:] != p[:-1]
-            prev = np.empty_like(c)
-            prev[1:] = c[:-1]
-            prev[first] = self._last_cc[p[first]]
-            diff = (c - prev) & 0x0F
-            # diff == 0 is a (permitted) duplicate packet.
-            cc_errors = int(np.count_nonzero((prev >= 0) & (diff != 1) & (diff != 0)))
-            last = np.ones(p.size, dtype=bool)
-            last[:-1] = p[:-1] != p[1:]
-            self._last_cc[p[last]] = c[last]
-
-        delta = TsCounters(
-            packets=n,
-            tei=int(np.count_nonzero(tei)),
-            cc_errors=cc_errors,
-            scrambled=int(np.count_nonzero(scrambled & ~null & ~tei)),
-            null=int(np.count_nonzero(null)),
-        )
+        delta = TsCounters(packets=n, tei=tei, cc_errors=cc_errors, scrambled=scrambled, null=null)
         t = self.total
         t.packets += delta.packets
         t.tei += delta.tei
@@ -173,7 +166,7 @@ class TsAnalyzer:
         return delta
 
     def reset_continuity(self) -> None:
-        self._last_cc.fill(-1)
+        self._last_cc = [-1] * 8192
 
 
 # ---------------------------------------------------------------------------
@@ -353,13 +346,13 @@ class SiCollector:
 
     def update(self, packets: bytes) -> None:
         n = len(packets) // PACKET_SIZE
-        if n == 0:
-            return
-        a = np.frombuffer(packets, dtype=np.uint8, count=n * PACKET_SIZE).reshape(n, PACKET_SIZE)
-        pid = ((a[:, 1] & 0x1F).astype(np.int32) << 8) | a[:, 2]
-        for i in np.flatnonzero(np.isin(pid, self.PIDS)):
-            off = int(i) * PACKET_SIZE
-            p = int(pid[i])
+        for off in range(0, n * PACKET_SIZE, PACKET_SIZE):
+            # PAT, NIT and SDT all have PIDs below 0x100.
+            if packets[off + 1] & 0x1F:
+                continue
+            p = packets[off + 2]
+            if p not in self._asm:
+                continue
             for sec in self._asm[p].push(packets[off : off + PACKET_SIZE]):
                 try:
                     self._parsers[p](sec, self.info)
