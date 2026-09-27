@@ -1,5 +1,7 @@
 """MPEG-2 TS helpers: packet alignment, error statistics and PSI/SI parsing."""
 
+from __future__ import annotations
+
 from dataclasses import dataclass, field
 
 from . import aribstr

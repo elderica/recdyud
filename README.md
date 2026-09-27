@@ -13,7 +13,7 @@
 ## 必要なもの
 
 - Linux (x86_64。aarch64 は未確認)
-- [uv](https://docs.astral.sh/uv/)（CPython 3.14 は uv が取得します）
+- Python 3.10 以上と [uv](https://docs.astral.sh/uv/)（Python は uv が取得します。既定では 3.14 を使います）
 - C/C++ コンパイラと CMake 3.20 以上（ネイティブ部分のビルド用）
 - Docker（mirakc イメージを使う場合）
 

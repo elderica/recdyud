@@ -1,5 +1,7 @@
 """ctypes binding of libdyudb25 (libaribb25 + the DY-UD200 card shim)."""
 
+from __future__ import annotations
+
 import ctypes
 import logging
 from dataclasses import dataclass

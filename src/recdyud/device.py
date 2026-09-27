@@ -5,6 +5,8 @@ The command set and the initialisation sequence follow BonDriver_dyud
 original driver are intentionally not implemented.
 """
 
+from __future__ import annotations
+
 import array
 import ctypes
 import logging
@@ -193,7 +195,7 @@ class DyUd200:
             try:
                 if dev.is_kernel_driver_active(INTERFACE):
                     dev.detach_kernel_driver(INTERFACE)
-            except NotImplementedError, usb.core.USBError:
+            except (NotImplementedError, usb.core.USBError):
                 pass
             try:
                 cfg = dev.get_active_configuration()

@@ -25,6 +25,8 @@ jobs:
         # The arm runner checks that the native part builds and the tests pass
         # on aarch64; it does not replace testing with a real tuner.
         runner: [ubuntu-24.04, ubuntu-24.04-arm]
+        # The oldest supported version and the one used for development.
+        python: ['3.10', '3.14']
     runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@v7
@@ -33,6 +35,7 @@ jobs:
       - uses: astral-sh/setup-uv@v10.2.0
         with:
           enable-cache: true
+          python-version: ${{ matrix.python }}
       - run: uv sync --frozen
       - run: uv run pytest
       - run: uv run recdyud --version
