@@ -43,6 +43,14 @@ sudo udevadm control --reload-rules && sudo udevadm trigger --action=add --subsy
 
 オートサスペンドの設定はデバイスの追加時にだけ適用されるので、`--action=add` を付けてください（またはチューナーを挿し直してください）。
 
+デスクトップにログインして使う場合は、ログイン中のユーザーに自動で権限が付くので、これ以上の設定は不要です。
+SSH 経由や systemd のサービスなど、ログインセッションの外で `recdyud` を動かす場合は、実行するユーザーを `video` グループに追加してください
+（反映には再ログインが必要です）。Docker イメージを使う場合は、コンテナ内で root として動くので不要です。
+
+```sh
+sudo usermod -aG video "$USER"
+```
+
 `bin/recdyud` と `bin/recdyud-diag` は `uv run` を呼び出すラッパースクリプトです。
 `PATH` の通ったディレクトリにシンボリックリンクを置くと、どこからでも実行できます。
 
