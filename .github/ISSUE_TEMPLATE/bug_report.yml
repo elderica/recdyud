@@ -1,0 +1,71 @@
+name: 不具合の報告
+description: recdyud / recdyud-diag が期待どおりに動かない
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        報告ありがとうございます。書く前に [CONTRIBUTING.md](https://github.com/elderica/recdyud/blob/main/CONTRIBUTING.md) をご覧ください。
+        **B-CAS カード番号の全桁（`--show-card-id` の出力）と、録画した TS ファイルは貼らないでください。**
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: 何が起きたか
+      description: 期待した動作と、実際の動作を書いてください。
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: 再現手順
+      description: 実行したコマンドをそのまま書いてください。
+      placeholder: |
+        recdyud -v 27 10 /dev/null
+    validations:
+      required: true
+  - type: textarea
+    id: log
+    attributes:
+      label: ログ
+      description: "`-v`（USB の通信まで見る場合は `-vv`）を付けたときの出力。ビルドの問題なら `uv sync -v` のエラーの前後。"
+      render: text
+  - type: textarea
+    id: diag-info
+    attributes:
+      label: recdyud-diag info の出力
+      description: カード番号は既定で下 4 桁以外が伏せられます。シリアル番号は伏せてもかまいません。
+      render: text
+  - type: input
+    id: version
+    attributes:
+      label: recdyud のバージョン
+      description: "`recdyud --version`。リポジトリから使っている場合は `git rev-parse --short HEAD` も。"
+    validations:
+      required: true
+  - type: input
+    id: os
+    attributes:
+      label: OS とアーキテクチャ
+      placeholder: Ubuntu 24.04, x86_64
+    validations:
+      required: true
+  - type: dropdown
+    id: connection
+    attributes:
+      label: チューナーのつなぎ方
+      options:
+        - PC に直結
+        - USB ハブ経由
+        - 仮想マシン・usbipd 経由
+        - その他（本文に記入）
+    validations:
+      required: true
+  - type: dropdown
+    id: usage
+    attributes:
+      label: 使い方
+      options:
+        - recdyud を直接実行
+        - mirakc の Docker イメージ（docker/）
+        - 自分で用意した mirakc / Mirakurun
+        - その他（本文に記入）

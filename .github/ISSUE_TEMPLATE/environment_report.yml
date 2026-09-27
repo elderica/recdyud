@@ -1,0 +1,58 @@
+name: 動作報告
+description: 未確認の環境（aarch64・ほかのファームウェアなど）で試した結果
+labels: [environment-report]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        未確認の環境での結果は、うまく動いた場合も助かります。
+        **B-CAS カード番号の全桁（`--show-card-id` の出力）と、録画した TS ファイルは貼らないでください。**
+  - type: input
+    id: firmware
+    attributes:
+      label: ファームウェアのバージョン
+      description: "`recdyud-diag info` の Firmware の行"
+      placeholder: 1.0.5-2
+    validations:
+      required: true
+  - type: input
+    id: os
+    attributes:
+      label: OS・アーキテクチャ・機種
+      placeholder: Raspberry Pi OS (bookworm), aarch64, Raspberry Pi 5
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: recdyud のバージョン
+      description: "`recdyud --version`。リポジトリから使っている場合は `git rev-parse --short HEAD` も。"
+    validations:
+      required: true
+  - type: checkboxes
+    id: results
+    attributes:
+      label: 動いたもの
+      options:
+        - label: "`uv sync` でビルドできた"
+        - label: "`recdyud-diag info` でファームウェアと B-CAS カードが読めた"
+        - label: "`recdyud-diag scan` でチャンネルが見つかった"
+        - label: 録画・視聴でスクランブルが解除された
+        - label: mirakc から使えた
+  - type: textarea
+    id: diag-info
+    attributes:
+      label: recdyud-diag info の出力
+      description: カード番号は既定で下 4 桁以外が伏せられます。シリアル番号は伏せてもかまいません。
+      render: text
+  - type: textarea
+    id: recording
+    attributes:
+      label: 録画したときの出力
+      description: "例: `recdyud -v 27 60 /dev/null` の最後の行（TEI・CC・USB エラーの数が出ます）"
+      render: text
+  - type: textarea
+    id: notes
+    attributes:
+      label: 気づいたこと
+      description: 動かなかったところ、警告、つなぎ方（直結・ハブ・仮想マシン）など
