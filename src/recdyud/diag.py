@@ -340,14 +340,22 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument("channel")
     sp.add_argument("--interval", type=float, default=1.0, metavar="SEC", help="report interval (default: 1)")
     sp.add_argument("--duration", type=float, default=0, metavar="SEC", help="stop after SEC seconds")
-    sp.add_argument("--lock-timeout", type=float, default=5.0, metavar="SEC")
+    sp.add_argument(
+        "--lock-timeout", type=float, default=5.0, metavar="SEC", help="wait up to SEC seconds for lock (default: 5)"
+    )
     sp.add_argument("--json", action="store_true", help="print one JSON object per interval")
     sp.set_defaults(func=cmd_monitor)
 
     sp = sub.add_parser("scan", help="scan channels")
     device_arg(sp)
     sp.add_argument("--channels", default="13-62", help="channels to scan (default: 13-62), e.g. 13-62,C13-C63")
-    sp.add_argument("--lock-timeout", type=float, default=2.0, metavar="SEC")
+    sp.add_argument(
+        "--lock-timeout",
+        type=float,
+        default=2.0,
+        metavar="SEC",
+        help="wait up to SEC seconds for lock per channel (default: 2)",
+    )
     sp.add_argument("--dwell", type=float, default=6.0, metavar="SEC", help="max seconds to read SI per channel")
     sp.add_argument("--min-dwell", type=float, default=1.0, metavar="SEC", help="min seconds to count errors")
     sp.add_argument("--all", action="store_true", help="also print channels that did not lock")
